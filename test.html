@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>إدارة مواعيد مقابلات العمل</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            border: 1px solid #dddddd;
+            padding: 8px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        tr:hover {
+            background-color: #f2f2f2;
+        }
+
+        #interviewForm {
+            margin-top: 20px;
+        }
+
+        #interviewForm label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        #notesLabel {
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        .whatsapp-icon {
+            font-size: 24px;
+            color: green;
+            text-decoration: none;
+        }
+    </style>
+    <link rel="stylesheet" href="./test.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+</head>
+<body>
+    <h1>إدارة مواعيد مقابلات العمل</h1>
+
+    <form id="interviewForm" class="top-form">
+        <label for="employeeName">اسم الموظف:</label>
+        <input type="text" id="employeeName" required>
+
+        <label for="phoneNumber">رقم الهاتف:</label>
+        <input type="tel" id="phoneNumber" required>
+
+        <label for="interviewDate">موعد المقابلة:</label>
+        <input type="datetime-local" id="interviewDate" required>
+
+        <label for="interview Status">حالة المقابلة:</label>
+        <select id="interviewStatus">
+            <option value="موافقة عليه">موافقة عليه</option>
+            <option value="بانتظار الحضور">بانتظار الحضور</option>
+            <option value="تم الاعتذار">تم الاعتذار</option>
+            <option value="غير مطابق للشروط">غير مطابق للشروط</option>
+        </select>
+
+        <label for="notes">ملاحظات:</label>
+        <textarea id="notes" rows="4"></textarea>
+
+        <label for="resume">ارفاق ملف السيرة الذاتية (اختياري):</label>
+        <input type="file" id="resume">
+
+        <label for="rating">التقييم:</label>
+        <input type="number" id="rating" min="1" max="5" required>
+
+        <button type="submit">حفظ الموعد</button>
+    </form>
+
+    <h2>المواعيد المحفوظة</h2>
+
+    <label for="search">البحث حسب الاسم:</label>
+    <input type="text" id="search" onkeyup="searchByName()" placeholder="ادخل الاسم...">
+
+    <table id="interviewTable">
+        <thead>
+            <tr>
+                <th>اسم الموظف</th>
+                <th>رقم الهاتف</th>
+                <th>موعد المقابلة</th>
+                <th>حالة المقابلة</th>
+                <th>ملاحظات</th>
+                <th>سيرة ذاتية</th>
+                <th>التقييم</th>
+                <th>تواصل</th>
+                <th>تعديل</th>
+                <th>حذف</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- هنا سيتم عرض المواعيد المحفوظة بشكل ديناميكي -->
+        </tbody>
+    </table>
+
+    <script>
+        if (typeof(Storage) !== "undefined") {
+            updateInterviewList();
+
+            document.getElementById("interviewForm").addEventListener("submit", function(event) {
+                event.preventDefault();
+
+                var employeeName = document.getElementById("employeeName").value;
+                var phoneNumber = document.getElementById("phoneNumber").value;
+                var interviewDate = document.getElementById("interviewDate").value;
+                var interviewStatus = document.getElementById("interviewStatus").value;
+                var notes = document.getElementById("notes").value;
+                var resume = document.getElementById("resume").files[0];
+                var rating = document.getElementById("rating").value;
+
+                var tableBody = document.getElementById("interviewTable").getElementsByTagName("tbody")[0];
+                var newRow = tableBody.insertRow(0);
+                newRow.insertCell().textContent = employeeName;
+                newRow.insertCell().textContent = phoneNumber;
+                newRow.insertCell().textContent = interviewDate;
+                newRow.insertCell().textContent = interviewStatus;
+                newRow.insertCell().textContent = notes;
+
+                var fileCell = newRow.insertCell();
+                if (resume) {
+                    var fileLink = document.createElement("a");
+                    fileLink.textContent = "عرض السيرة الذاتية";
+                    fileLink.href = URL.createObjectURL(resume);
+                    fileLink.target = "_blank";
+                    fileCell.appendChild(fileLink);
+                } else {
+                    fileCell.textContent = "لا يوجد";
+                }
+
+                newRow.insertCell().textContent = rating;
+
+                var whatsappCell = newRow.insertCell();
+                var whatsappLink = document.createElement("a");
+                whatsappLink.className = "whatsapp-icon";
+                whatsappLink.innerHTML = '<i class="fab fa-whatsapp"></i>';
+                whatsappLink.href = 'https://wa.me/' + phoneNumber;
+                whatsappLink.target = "_blank";
+                whatsappCell.appendChild(whatsappLink);
+
+                newRow.insertCell().innerHTML = '<button onclick="editInterview(this)">تعديل</button>';
+                newRow.insertCell().innerHTML = '<button onclick="deleteInterview(this)">حذف</button>';
+
+                document.getElementById("employeeName").value = "";
+                document.getElementById("phoneNumber").value = "";
+                document.getElementById("interviewDate").value = "";
+                document.getElementById("interviewStatus").value = "موافقة عليه";
+                document.getElementById("notes").value = "";
+                document.getElementById("resume").value = "";
+                document.getElementById("rating").value = "";
+
+                saveToLocalStorage();
+            });
+
+            function searchByName() {
+                var input, filter, table, tr, td, i, txtValue;
+                input = document.getElementById("search");
+                filter = input.value.toUpperCase();
+                table = document.getElementById("interviewTable");
+                tr = table.getElementsByTagName("tr");
+                for (i = 1; i < tr.length; i++) {
+                    td = tr[i].getElementsByTagName("td")[0];
+                    if (td) {
+                        txtValue = td.textContent || td.innerText;
+                        if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                            tr[i].style.display = "";
+                        } else {
+                            tr[i].style.display = "none";
+                        }
+                    }
+                }
+            }
+
+            function editInterview(button) {
+                var row = button.parentNode.parentNode;
+                var cells = row.getElementsByTagName("td");
+
+                document.getElementById("employeeName").value = cells[0].textContent;
+                document.getElementById("phoneNumber").value = cells[1].textContent;
+                document.getElementById("interviewDate").value = cells[2].textContent;
+                document.getElementById("interviewStatus").value = cells[3].textContent;
+                document.getElementById("notes").value = cells[4].textContent;
+                document.getElementById("rating").value = cells[6].textContent;
+
+                row.remove();
+
+                saveToLocalStorage();
+            }
+
+            function deleteInterview(button) {
+                var row = button.parentNode.parentNode;
+                row.remove();
+
+                saveToLocalStorage();
+            }
+
+            function updateInterviewList() {
+                var interviews = JSON.parse(localStorage.getItem("interviews"));
+                if (interviews) {
+                    var interviewTable = document.getElementById("interviewTable");
+                    var tableBody = interviewTable.getElementsByTagName("tbody")[0];
+                    tableBody.innerHTML = "";
+
+                    interviews.sort(function(a, b) {
+                        return new Date(b.interviewDate) - new Date(a.interviewDate);
+                    });
+
+                    for (var i = 0; i < interviews.length; i++) {
+                        var newRow = tableBody.insertRow(0);
+                        newRow.insertCell().textContent = interviews[i].employeeName;
+                        newRow.insertCell().textContent = interviews[i].phoneNumber;
+                        newRow.insertCell().textContent = interviews[i].interviewDate;
+                        newRow.insertCell().textContent = interviews[i].interviewStatus;
+                        newRow.insertCell().textContent = interviews[i].notes;
+
+                        var fileCell = newRow.insertCell();
+                        if (interviews[i].resume) {
+                            var fileLink = document.createElement("a");
+                            fileLink.textContent = "عرض السيرة الذاتية";
+                            fileLink.href = interviews[i].resume;
+                            fileLink.target = "_blank";
+                            fileCell.appendChild(fileLink);
+                        } else {
+                            fileCell.textContent = "لا يوجد";
+                        }
+
+                        newRow.insertCell().textContent = interviews[i].rating;
+
+                        var whatsappCell = newRow.insertCell();
+                        var whatsappLink = document.createElement("a");
+                        whatsappLink.className = "whatsapp-icon";
+                        whatsappLink.innerHTML = '<i class="fab fa-whatsapp"></i>';
+                        whatsappLink.href = 'https://wa.me/' + interviews[i].phoneNumber;
+                        whatsappLink.target = "_blank";
+                        whatsappCell.appendChild(whatsappLink);
+
+                        newRow.insertCell().innerHTML = '<button onclick="editInterview(this)">تعديل</button>';
+                        newRow.insertCell().innerHTML = '<button onclick="deleteInterview(this)">حذف</button>';
+                    }
+                }
+            }
+
+            function saveToLocalStorage() {
+                var interviewTable = document.getElementById("interviewTable");
+                var tableRows = interviewTable.getElementsByTagName("tr");
+
+                var interviews = [];
+                for (var i = 1; i < tableRows.length; i++) {
+                    var cells = tableRows[i].getElementsByTagName("td");
+                    var interview = {
+                        employeeName: cells[0].textContent,
+                        phoneNumber: cells[1].textContent,
+                        interviewDate: cells[2].textContent,
+                        interviewStatus: cells[3].textContent,
+                        notes: cells[4].textContent,
+                        resume: cells[5].getElementsByTagName("a")[0]?.href || null,
+                        rating: cells[6].textContent
+                    };
+                    interviews.push(interview);
+                }
+
+                localStorage.setItem("interviews", JSON.stringify(interviews));
+            }
+        } else {
+            alert("عذراً، الذاكرة المحلية غير مدعومة في هذا المتصفح.");
+        }
+    </script>
+</body>
+</html>
